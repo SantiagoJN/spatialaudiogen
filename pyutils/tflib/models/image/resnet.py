@@ -12,6 +12,7 @@ sys.path.insert(0, '../../../..')
 import tensorflow as tf
 from pyutils.tflib.models.image import preprocessing
 from pyutils.tflib import wrappers as tfw
+import pyutils.tflib.wrappers.core as tfwcore
 import string, re
 
 from collections import OrderedDict
@@ -31,12 +32,12 @@ class ResNet(object):
 
     @staticmethod
     def block(x, is_training, b2a, b2b, b2c, b1=None, downsample=False, name=None, reuse=False):
-        with tf.variable_scope(name, values=[x, is_training]):
+        with tf.compat.v1.variable_scope(name, values=[x, is_training]):
             s = 2 if downsample else 1
-            y1 = tfw.conv_2d(x, b1, 1, s, use_bias=False, use_batch_norm=True, activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='branch1') if b1 is not None else x
-            y2 = tfw.conv_2d(x, b2a, 1, s, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2a')
-            y2 = tfw.conv_2d(y2, b2b, 3, 1, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2b')
-            y2 = tfw.conv_2d(y2, b2c, 1, 1, use_bias=False, use_batch_norm=True, activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2c')
+            y1 = tfwcore.conv_2d(x, b1, 1, s, use_bias=False, use_batch_norm=True, activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='branch1') if b1 is not None else x
+            y2 = tfwcore.conv_2d(x, b2a, 1, s, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2a')
+            y2 = tfwcore.conv_2d(y2, b2b, 3, 1, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2b')
+            y2 = tfwcore.conv_2d(y2, b2c, 1, 1, use_bias=False, use_batch_norm=True, activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='branch2c')
 
             return tf.nn.relu(y1+y2)
 
@@ -70,7 +71,7 @@ class ResNet(object):
         # print(w_init.keys())
         # print(b_init.keys())
         restore_ops = []
-        for var in tf.get_collection(tf.GraphKeys.MODEL_VARIABLES):
+        for var in tf.get_collection(tf.compat.v1.GraphKeys.MODEL_VARIABLES):
             if scope is not None and not var.op.name.startswith(scope):
                 continue
             name = var.op.name.split('/')
@@ -128,11 +129,11 @@ class ResNet18(object):
 
         # conv1
         ends = OrderedDict()
-        with tf.variable_scope('conv1'):
+        with tf.compat.v1.variable_scope('conv1'):
             name = 'conv'
-            ends[name] = x = tfw.conv_2d(x, filters[0], kernels[0], strides[0], use_bias=False, use_batch_norm=True, 
+            ends[name] = x = tfwcore.conv_2d(x, filters[0], kernels[0], strides[0], use_bias=False, use_batch_norm=True, 
                 activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name=name)
-            x = tf.nn.max_pool(x, [1, 3, 3, 1], [1, 2, 2, 1], 'SAME')
+            x = tf.nn.max_pool2d(x, [1, 3, 3, 1], [1, 2, 2, 1], 'SAME')
             print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
             if truncate_at is not None and truncate_at == 'conv1':
                 return x, ends
@@ -190,7 +191,7 @@ class ResNet18(object):
             return x, ends
 
         # Logit
-        with tf.variable_scope('logits') as scope:
+        with tf.compat.v1.variable_scope('logits') as scope:
             x = tf.reduce_mean(x, [1, 2])
             name = 'fc'
             ends[name] = x = tfw.fully_connected(x, 1000, name=name)
@@ -199,7 +200,7 @@ class ResNet18(object):
 
     def _residual_block_first(self, x, out_channel, strides, is_training=False, reuse=False, name="unit"):
         in_channel = x.get_shape().as_list()[-1]
-        with tf.variable_scope(name) as scope:
+        with tf.compat.v1.variable_scope(name) as scope:
 
             # Shortcut connection
             if in_channel == out_channel:
@@ -208,13 +209,13 @@ class ResNet18(object):
                 else:
                     shortcut = tf.nn.max_pool(x, [1, strides, strides, 1], [1, strides, strides, 1], 'VALID')
             else:
-                shortcut = tfw.conv_2d(x, out_channel, 1, strides, use_bias=False, 
+                shortcut = tfwcore.conv_2d(x, out_channel, 1, strides, use_bias=False, 
                     activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='shortcut')
 
             # Residual
-            x = tfw.conv_2d(x, out_channel, 3, strides, use_bias=False, use_batch_norm=True, 
+            x = tfwcore.conv_2d(x, out_channel, 3, strides, use_bias=False, use_batch_norm=True, 
                 activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='conv_1')
-            x = tfw.conv_2d(x, out_channel, 3, 1, use_bias=False, use_batch_norm=True, 
+            x = tfwcore.conv_2d(x, out_channel, 3, 1, use_bias=False, use_batch_norm=True, 
                 activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='conv_2')
 
             # Merge
@@ -223,28 +224,30 @@ class ResNet18(object):
 
     def _residual_block(self, x, is_training=False, reuse=False, name="unit"):
         num_channel = x.get_shape().as_list()[-1]
-        with tf.variable_scope(name) as scope:
+        with tf.compat.v1.variable_scope(name) as scope:
             # Shortcut connection
             shortcut = x
             # Residual
-            x = tfw.conv_2d(x, num_channel, 3, 1, use_bias=False, use_batch_norm=True, 
+            x = tfwcore.conv_2d(x, num_channel, 3, 1, use_bias=False, use_batch_norm=True, 
                 activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name='conv_1')
-            x = tfw.conv_2d(x, num_channel, 3, 1, use_bias=False, use_batch_norm=True, 
+            x = tfwcore.conv_2d(x, num_channel, 3, 1, use_bias=False, use_batch_norm=True, 
                 activation_fn=None, is_training=is_training, trainable=is_training, reuse=reuse, name='conv_2')
 
             x = tf.nn.relu(x + shortcut)
         return x
 
     def restore_pretrained(self, inp_shape=3, scope=None):
-        pretrained = np.load(os.path.join(PWD, 'resnet18.npy')).all()
+        #pretrained = np.load(os.path.join(PWD, 'resnet18.npy'), allow_pickle=True).all()
+        #print(f'LOADING PRETRAINED MODEL IN {os.path.join(PWD, "resnet18.npy")}')
+        pretrained = np.load(os.path.join(PWD, 'resnet18.npy'), allow_pickle=True, fix_imports=True, encoding="latin1").all()
 
         restore_ops = []
-        for var in tf.get_collection(tf.GraphKeys.MODEL_VARIABLES):
+        for var in tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.MODEL_VARIABLES):
             if scope is not None and not var.op.name.startswith(scope):
                 continue
 
             name = var.op.name[len(scope)+1:] if scope is not None else var.op.name
-            restore_ops.append(tf.assign(var, pretrained[name]))
+            restore_ops.append(tf.compat.v1.assign(var, pretrained[name]))
 
         return  restore_ops
 
@@ -261,7 +264,7 @@ class ResNet50(ResNet):
 
         # Scale 1
         name = 'conv1'
-        ends[name] = x = tfw.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name=name)
+        ends[name] = x = tfwcore.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, trainable=is_training, reuse=reuse, name=name)
         print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
         if truncate_at == name: return x, ends
 
@@ -328,7 +331,7 @@ class ResNet101(ResNet):
 
         # Scale 1
         name = 'conv1'
-        ends[name] = x = tfw.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, reuse=reuse, name=name)
+        ends[name] = x = tfwcore.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, reuse=reuse, name=name)
         if truncate_at == name: return x, ends
 
         name = 'pool1'
@@ -395,7 +398,7 @@ class ResNet152(ResNet):
 
         # Scale 1
         name = 'conv1'
-        ends[name] = x = tfw.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, reuse=reuse, name=name)
+        ends[name] = x = tfwcore.conv_2d(x, 64, 7, 2, use_bias=False, use_batch_norm=True, activation_fn=tf.nn.relu, is_training=is_training, reuse=reuse, name=name)
         if truncate_at == name: return x, ends
 
         name = 'pool1'

@@ -24,7 +24,7 @@ def prepare_ambisonics(inp_fn, out_fn, inp_codec, overwrite=False):
     elif inp_codec in ('vorbis', 'opus'):
         remap = [0, 1, 2, 3]
     else:
-        raise ValueError, '{}: Unkown input codec: {}.'.format(inp_fn, inp_codec)
+        raise ValueError('{}: Unkown input codec: {}.'.format(inp_fn, inp_codec))
     cmd += ' -af "pan=4c|c0=c{}|c1=c{}|c2=c{}|c3=c{}"'.format(*remap)
     cmd += ' "{}"'.format(out_fn)
     

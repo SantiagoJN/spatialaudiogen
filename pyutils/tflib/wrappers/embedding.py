@@ -6,8 +6,8 @@ def embedding(x, vocab_dim, emb_dim,
               trainable=True,
               dtype=tf.float32,
               initializer=None,
-              activation_collection=tf.GraphKeys.ACTIVATIONS,
-              variable_collection=tf.GraphKeys.MODEL_VARIABLES,
+              activation_collection=tf.compat.v1.GraphKeys.ACTIVATIONS,
+              variable_collection=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
               scope='lookup'):
     if initializer is None:
         init_width = 0.5 / emb_dim

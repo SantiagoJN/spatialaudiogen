@@ -53,7 +53,7 @@ def fully_connected(x, n_units,
                     name='fc'):
     """Wrapper for fully connected layer."""
 
-    with tf.variable_scope(name, 'fully_connected', [x], reuse=reuse) as sc:
+    with tf.compat.v1.variable_scope(name, 'fully_connected', [x], reuse=reuse) as sc:
         dtype = x.dtype.base_dtype
         input_rank = x.get_shape().ndims
         if input_rank is None: raise ValueError('Rank of inputs must be known')
@@ -90,7 +90,7 @@ def fully_connected(x, n_units,
             # Reshape back outputs
             x = tf.reshape(x, static_shape[:-1]+[-1,])
             # x.set_shape(static_shape)
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
 
 
 def deconv_2d(x, n_units, kernel_size,
@@ -105,7 +105,7 @@ def deconv_2d(x, n_units, kernel_size,
               biases_initializer=None,
               name='deconv2d'):
     """Deconvolution wrapper."""
-    with tf.variable_scope(name, 'Deconv2D', [x], reuse=reuse) as sc:
+    with tf.compat.v1.variable_scope(name, 'Deconv2D', [x], reuse=reuse) as sc:
         dtype = x.dtype.base_dtype
         input_rank = x.get_shape().ndims
 
@@ -150,7 +150,7 @@ def deconv_2d(x, n_units, kernel_size,
             x = activation_fn(x)
             # print x
 
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
 
 
 def conv_2d(x, n_units, kernel_size,
@@ -170,7 +170,7 @@ def conv_2d(x, n_units, kernel_size,
             name='conv2d'):
     """Convolution wrapper."""
 
-    with tf.variable_scope(name, 'Conv2D', [x], reuse=reuse) as sc:
+    with tf.compat.v1.variable_scope(name, 'Conv2D', [x], reuse=reuse) as sc:
         dtype = x.dtype.base_dtype
         input_rank = x.get_shape().ndims
 
@@ -217,7 +217,7 @@ def conv_2d(x, n_units, kernel_size,
         if activation_fn is not None:
             x = activation_fn(x)
 
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
 
 
 def conv_1d(x, n_units, kernel_size,
@@ -236,7 +236,7 @@ def conv_1d(x, n_units, kernel_size,
             name='conv1d'):
     """Wrapper for 1d convolutional layer."""
 
-    with tf.variable_scope(name, 'Conv1D', [x], reuse=reuse) as sc:
+    with tf.compat.v1.variable_scope(name, 'Conv1D', [x], reuse=reuse) as sc:
         input_rank = x.get_shape().ndims
 
         if input_rank is None: raise ValueError('Rank of inputs must be known')
@@ -263,7 +263,7 @@ def conv_1d(x, n_units, kernel_size,
                     weights_initializer=weights_initializer,
                     biases_initializer=biases_initializer)
         x = tf.squeeze(x, axis=1, name=name)
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
 
 
 def causal_conv1d(x, n_units, kernel_size,
@@ -282,7 +282,7 @@ def causal_conv1d(x, n_units, kernel_size,
                   bn_initializer=None,
                   name='CausalConv1D'):
 
-    with tf.variable_scope(name, 'CausalConv1D', [x], reuse=reuse) as sc:
+    with tf.compat.v1.variable_scope(name, 'CausalConv1D', [x], reuse=reuse) as sc:
         dtype = x.dtype.base_dtype
         input_rank = x.get_shape().ndims
         if input_rank is None: raise ValueError('Rank of inputs must be known')
@@ -333,7 +333,7 @@ def causal_conv1d(x, n_units, kernel_size,
         if activation_fn is not None:
             x = activation_fn(x)
 
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
 
 
 def max_pool2d(x, window, stride=1, padding='SAME', name='MaxPool'):
@@ -353,11 +353,11 @@ def max_pool2d(x, window, stride=1, padding='SAME', name='MaxPool'):
         stride = (1,)*(input_rank-len(stride)-2) + stride
 
     out = tf.nn.pool(x, window,'MAX', padding, strides=stride, name=name)
-    return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, name, out)
+    return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, name, out)
 
 
 def max_pool1d(x, kernel_size, stride=1, padding='SAME', name='MaxPool'):
-    with tf.variable_scope(name, 'MaxPool1D', [x]) as sc:
+    with tf.compat.v1.variable_scope(name, 'MaxPool1D', [x]) as sc:
         input_rank = x.get_shape().ndims
 
         if input_rank is None: raise ValueError('Rank of inputs must be known')
@@ -371,11 +371,11 @@ def max_pool1d(x, kernel_size, stride=1, padding='SAME', name='MaxPool'):
 
 
 def avg_pool2d(x, kernel_size, stride=1, padding='SAME', name='AvgPool'):
-    return layers.avg_pool2d(x, kernel_size, stride, padding=padding, outputs_collections=tf.GraphKeys.ACTIVATIONS, scope=name)
+    return layers.avg_pool2d(x, kernel_size, stride, padding=padding, outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS, scope=name)
 
 
 def avg_pool1d(x, kernel_size, stride=1, padding='SAME', name='AvgPool'):
-    with tf.variable_scope(name, 'AvgPool1D', [x]) as sc:
+    with tf.compat.v1.variable_scope(name, 'AvgPool1D', [x]) as sc:
         input_rank = x.get_shape().ndims
 
         if input_rank is None: raise ValueError('Rank of inputs must be known')
@@ -391,8 +391,8 @@ def dropout(x,
             keep_prob=0.5,
             is_training=False,
             name='drop'):
-    with tf.variable_scope(name, 'dropout', [x]) as sc:
+    with tf.compat.v1.variable_scope(name, 'dropout', [x]) as sc:
         x = utils.smart_cond(is_training,
                              lambda: tf.nn.dropout(x, keep_prob, name=name),
                              lambda: x, name=name)
-        return utils.collect_named_outputs(tf.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)
+        return utils.collect_named_outputs(tf.compat.v1.GraphKeys.ACTIVATIONS, sc.original_name_scope, x)

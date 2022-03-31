@@ -1,17 +1,21 @@
 import os
 import scipy.signal
 import numpy as np
+from soundfile import SoundFile
 from pyutils.iolib.video import getFFprobeMeta
 from pyutils.cmd import runSystemCMD
-from scikits.audiolab import Sndfile, Format
+# from scikits.audiolab import Sndfile, Format
 import tempfile
 import resampy
+# import librosa
 
 
 def load_wav(fname, rate=None):
-    fp = Sndfile(fname, 'r')
-    _signal = fp.read_frames(fp.nframes)
-    _signal = _signal.reshape((-1, fp.channels))
+    # fp = Sndfile(fname, 'r')
+    fp = SoundFile(fname, 'r')
+    #_signal = fp.read_frames(fp.nframes)
+    _signal = fp.buffer_read(dtype="int32")
+    _signal = np.asarray(_signal).reshape((-1, fp.channels))
     _rate = fp.samplerate
 
     if _signal.ndim == 1:
@@ -27,11 +31,24 @@ def load_wav(fname, rate=None):
 
     return signal, rate
 
-
 def save_wav(fname, signal, rate):
-    fp = Sndfile(fname, 'w', Format('wav'), signal.shape[1], rate)
-    fp.write_frames(signal)
-    fp.close()
+    fp = SoundFile(fname, 'w', rate, signal.shape[1])
+    #fp.write(fname, signal, rate)
+    #print(f'########################fp: {fp}')
+    fp.write(signal)
+    # with SoundFile(fname, 'w', rate, signal.shape[1], 'PCM_24') as f:
+    #     f.write(signal)
+    #fp.close()
+
+    # Intento 3
+    # y, sr = librosa.load(librosa.util.example_audio_file(), duration=5.0)
+    # librosa.output.write_wav(fname, signal, rate)
+    # fp = SoundFile(fname, 'w', rate, signal.shape[1])
+    # # d, sr = fp.read()
+    # fp.write(signal)
+
+    # Intento 4
+    
 
 
 def convert2wav(inp_fn, out_fn, rate=None):
@@ -46,7 +63,7 @@ def convert2wav(inp_fn, out_fn, rate=None):
     stdout, stderr = runSystemCMD(' '.join(cmd))
     if any([l.startswith('Output file is empty,')
             for l in stderr.split('\n')]):
-        raise ValueError, 'Output file is empty.\n' + stderr
+        raise (ValueError, 'Output file is empty.\n' + stderr)
 
 
 class AudioReader:
@@ -54,9 +71,9 @@ class AudioReader:
         fp = Sndfile(fn, 'r') if fn.endswith('.wav') else None
         if fp is None or (rate is not None and fp.samplerate != rate):
             # Convert to wav file
-            if not os.path.isdir('/tmp/'):
-                os.makedirs('/tmp/')
-            snd_file = tempfile.NamedTemporaryFile('w', prefix='/tmp/', suffix='.wav', delete=False)
+            if not os.path.isdir('c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/'):
+                os.makedirs('c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/')
+            snd_file = tempfile.NamedTemporaryFile('w', prefix='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.wav', delete=False)
             snd_file.close()
 
             convert2wav(fn, snd_file.name, rate)
@@ -149,7 +166,8 @@ class AudioReader2:
         fns = os.listdir(audio_folder)
         self.num_files = len(fns)
 
-        fp = Sndfile(os.path.join(self.audio_folder, fns[0]), 'r')
+        # fp = Sndfile(os.path.join(self.audio_folder, fns[0]), 'r')
+        fp = SoundFile(os.path.join(self.audio_folder, fns[0]), 'r')
         data, fps = load_wav(os.path.join(self.audio_folder, fns[0]))
         self.rate = float(fp.samplerate) if rate is not None else fps
         self.num_channels = fp.channels

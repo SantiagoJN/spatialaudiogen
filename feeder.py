@@ -49,13 +49,14 @@ class FilenameProvider(object):
 
 class AudioReader(object):
     def __init__(self, audio_folder, rate=None, ambi_order=1):
-        from scikits.audiolab import Sndfile
+        #from scikits.audiolab import Sndfile
+        from soundfile import SoundFile
         self.audio_folder = audio_folder
 
         fns = os.listdir(audio_folder)
         self.num_files = len(fns)
 
-        fp = Sndfile(os.path.join(self.audio_folder, fns[0]), 'r')
+        fp = SoundFile(os.path.join(self.audio_folder, fns[0]), 'r')
         self.rate = float(fp.samplerate) if rate is None else rate
         self.num_channels = min((fp.channels, (ambi_order+1)**2))
         self.duration = self.num_files

@@ -2,7 +2,8 @@ import sys, os
 from datetime import datetime
 import numpy as np
 import tensorflow as tf
-from scipy.misc import imresize
+#from scipy.misc import imresize
+import scipy
 
 
 def add_scalar_summaries(tensor_list, tensor_names):
@@ -34,7 +35,7 @@ def save_params(args):
 
 def print_params(args):
     for k, v in args.__dict__.iteritems():
-        print '{}: {}'.format(k, v)
+        print ('{}: {}'.format(k, v))
 
 
 def load_params(model_dir):
@@ -125,7 +126,7 @@ def stft(inp, wind_size, n_overlap):
     n_frames = inp.get_shape().as_list()[-1]
     n_winds = int(np.floor(n_frames / wind_size)) - 1
     x_crops = []
-    for k, ss in enumerate(range(0, wind_size, wind_size / n_overlap)):
+    for k, ss in enumerate(range(0, wind_size, int(wind_size / n_overlap))):
         x_crops.append(inp[:, ss:ss + wind_size * n_winds])
 
     x = tf.stack(x_crops, 1)
@@ -135,7 +136,7 @@ def stft(inp, wind_size, n_overlap):
     hann_window = tf.expand_dims(tf.expand_dims(hann_window, 0), 0)
     x = x * hann_window
 
-    stft = tf.fft(tf.cast(x, tf.complex64))
+    stft = tf.signal.fft(tf.cast(x, tf.complex64))
     stft = tf.transpose(stft, (0, 2, 1, 3))
 
     sz = stft.get_shape().as_list()
@@ -188,7 +189,7 @@ def istft(inp, n_overlap):
     inp = inp[:, :n_frames, :]
     batch_size, n_frames, n_freqs = inp.get_shape().as_list()
 
-    x = tf.real(tf.ifft(inp))
+    x = tf.math.real(tf.signal.ifft(inp))
     x = tf.reshape(x, (batch_size, -1, n_overlap, n_freqs))
     x = tf.transpose(x, (0, 2, 1, 3))
     x = tf.reshape(x, (batch_size, n_overlap, -1))
@@ -198,9 +199,9 @@ def istft(inp, n_overlap):
     for i in range(n_overlap):
         # x_sep[i] = tf.manip.roll(x_sep[i], i*wind_size/4, 2)
         if i == 0:
-            x_list[i] = x_list[i][:, (n_overlap - i - 1)*skip:]
+            x_list[i] = x_list[i][:, int((n_overlap - i - 1)*skip):]
         else:
-            x_list[i] = x_list[i][:, (n_overlap - i - 1)*skip:-i*skip]
+            x_list[i] = x_list[i][:, int((n_overlap - i - 1)*skip):int(-i*skip)]
         
     x = tf.add_n(x_list) / float(n_overlap)
 
@@ -230,11 +231,12 @@ def gen_360video(audio_fn, video_fn, output_fn, inject_meta=False, overlay_map=F
     from matplotlib import pyplot as plt
     from skimage.transform import resize
 
-    tmp_file = tempfile.mktemp(dir='/tmp/', suffix='.mp4')
-    tmp_snd_file = tempfile.mktemp(dir='/tmp/', suffix='.wav')
-    tmp_vid_file = tempfile.mktemp(dir='/tmp/', suffix='.mp4')
+    tmp_file = tempfile.mktemp(dir='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.mp4')
+    tmp_snd_file = tempfile.mktemp(dir='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.wav')
+    tmp_vid_file = tempfile.mktemp(dir='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.mp4')
     
     print('Splitting')
+    print(f'==================================================')
     cmd = 'ffmpeg -i {} -vn -strict -2 {}'.format(audio_fn, tmp_snd_file)
     print(cmd)
     os.system(cmd)
@@ -242,10 +244,11 @@ def gen_360video(audio_fn, video_fn, output_fn, inject_meta=False, overlay_map=F
     cmd = 'ffmpeg -i {} -an -vcodec copy {}'.format(video_fn, tmp_vid_file) 
     print(cmd)
     os.system(cmd)
+    print(f'==================================================')
 
     if overlay_map:
         print('Overlaying spherical map')
-        tmp_vid_file2 = tempfile.mktemp(dir='/tmp/', suffix='.mp4')
+        tmp_vid_file2 = tempfile.mktemp(dir='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.mp4')
         ambix, snd_rate = load_wav(tmp_snd_file)
         reader = VideoReader(tmp_vid_file, rate=10)
         writer = VideoWriter(tmp_vid_file2, reader.fps)
@@ -284,19 +287,27 @@ def gen_360video(audio_fn, video_fn, output_fn, inject_meta=False, overlay_map=F
 
     if binauralize:
         print('Binauralizing')
-        tmp_snd_file2 = tempfile.mktemp(dir='/tmp/', suffix='.wav')
+        tmp_snd_file2 = tempfile.mktemp(dir='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.wav')
         ambix, snd_rate = load_wav(tmp_snd_file)
         stereo = np.stack([ambix[:,0]+ambix[:,1], ambix[:,0]-ambix[:,1]], 1)
-        stereo /= (np.abs(stereo).max() / 0.95)
+        #stereo /= (np.abs(stereo).max() / 0.95)
+        divisor = np.full((2), float(np.abs(stereo).max() / 0.95))
+        print(f'#######Tipo de stereo: {type(stereo)}, y tipo del divisor: {type(divisor)}')
+        #print(f'#######Tipo de valores: {type(stereo[0])}')
+        print(f'#######Longitud de stereo: {len(stereo)}, shape: {stereo.shape}, Divisor: {divisor.shape}')
+        print(f'Stereo: {stereo}\n\n\nDivisor: {divisor}')
+        stereo = stereo / divisor
         save_wav(tmp_snd_file2, stereo, snd_rate)
 
         os.remove(tmp_snd_file)
         tmp_snd_file = tmp_snd_file2
 
     print('Mixing')
+    print(f'==================================================')
     cmd = 'ffmpeg -y -i {} -i {} -vcodec copy -strict -2 {}'.format(tmp_snd_file, tmp_vid_file, tmp_file)
     print(cmd)
     os.system(cmd)
+    print(f'==================================================')
 
     cwd = os.getcwd()
     output_fn = os.path.join(cwd, output_fn)

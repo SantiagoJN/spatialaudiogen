@@ -1,4 +1,5 @@
-from common import spherical_harmonics_matrix
+from . import common
+from .common import spherical_harmonics_matrix
 from pyutils.ambisonics.position import Position
 import numpy as np
 

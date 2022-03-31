@@ -18,7 +18,7 @@ class PythonFeeder(object):
     This class manages the the background threads needed to fill
         a queue full of datalib.
     """
-    def __init__(self, dataset, batch_size=256, n_feeders=2, queue=tf.RandomShuffleQueue):
+    def __init__(self, dataset, batch_size=256, n_feeders=2, queue=tf.queue.RandomShuffleQueue):
         if isinstance(dataset, (list, tuple)) and len(dataset) == 2:
             dataset = CompleteDataGenerator(dataset[0], dataset[1], shuffle=True, batch_size=batch_size)
 

@@ -1,9 +1,11 @@
 import numpy as np
-from common import AmbiFormat
-from decoder import AmbiDecoder
+from . import common
+from . import decoder
+from .common import AmbiFormat
+from .decoder import AmbiDecoder
 from pyutils.iolib.position import read_position_file
 from pyutils.ambisonics.position import Position, MovingSource
-from itertools import izip
+import itertools
 
 
 def spherical_mesh(angular_res):
@@ -19,11 +21,12 @@ class SphericalAmbisonicsVisualizer(object):
         self.angular_res = angular_res
         self.data = data
         self.phi_mesh, self.nu_mesh = spherical_mesh(angular_res)
+        #mesh_p = [Position(phi, nu, 1., 'polar') for phi, nu in itertools.zip(self.phi_mesh.reshape(-1), self.nu_mesh.reshape(-1))]
         mesh_p = [Position(phi, nu, 1., 'polar') for phi, nu in zip(self.phi_mesh.reshape(-1), self.nu_mesh.reshape(-1))]
 
         # Setup decoder
         ambi_order = np.sqrt(data.shape[1]) - 1
-        self.decoder = AmbiDecoder(mesh_p, AmbiFormat(ambi_order=ambi_order, sample_rate=rate), method='projection')
+        self.decoder = AmbiDecoder(mesh_p, common.AmbiFormat(ambi_order=ambi_order, sample_rate=rate), method='projection')
 
         # Compute spherical energy averaged over consecutive chunks of "window" secs
         self.window_frames = int(self.window * rate)
@@ -137,7 +140,7 @@ def ambix_emd(ambi1, ambi2, rate, ang_res=20):
     ambi1Vis = SphericalAmbisonicsVisualizer(ambi1, rate, window=0.1, angular_res=ang_res)
     ambi2Vis = SphericalAmbisonicsVisualizer(ambi2, rate, window=0.1, angular_res=ang_res)
     directional_error, power_error = [], []
-    for rms1, rms2 in izip(ambi1Vis.loop_frames(), ambi2Vis.loop_frames()):
+    for rms1, rms2 in itertools.zip(ambi1Vis.loop_frames(), ambi2Vis.loop_frames()):
         derr, perr = emd(rms1, rms2, ambi1Vis.phi_mesh, ambi1Vis.nu_mesh)
         directional_error.append(derr), power_error.append(perr)
     return np.mean(directional_error), np.mean(power_error)
@@ -160,8 +163,8 @@ def test_emd():
                                        rate=ambiVis.visualization_rate(),
                                        angular_res=ang_res)
 
-    for rms, frame in izip(ambiVis.loop_frames(), srcVis.loop_frames()):
-        print emd(rms, frame, ambiVis.phi_mesh, ambiVis.nu_mesh)
+    for rms, frame in itertools.zip(ambiVis.loop_frames(), srcVis.loop_frames()):
+        print (emd(rms, frame, ambiVis.phi_mesh, ambiVis.nu_mesh))
         # plt.imshow(frame + rms/rms.max())
         # plt.show()
 
@@ -174,8 +177,8 @@ def test_ambix_emd():
     rate = 24000
     ambi1, _ = load_wav('data/wav_test/hello-left2right-ambix.wav', rate=rate)
     ambi2, _ = load_wav('data/wav_test/hello-statright-ambix.wav', rate=rate)
-    print 'Same FOA: EMD =', ambix_emd(ambi1, ambi1, rate)
-    print 'Diff FOA: EMD =', ambix_emd(ambi1, ambi2, rate)
+    print ('Same FOA: EMD =', ambix_emd(ambi1, ambi1, rate))
+    print ('Diff FOA: EMD =', ambix_emd(ambi1, ambi2, rate))
 
 if __name__ == '__main__':
     # test_emd()

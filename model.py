@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import pyutils.tflib.wrappers as tfw
+import pyutils.tflib.wrappers.core as tfwcore
 from pyutils.tflib.models.image.resnet import ResNet18
 from collections import OrderedDict
 import myutils
@@ -61,16 +62,16 @@ class SptAudioGen(object):
 
     @staticmethod
     def _stft_mse_ops(gt, pred, window, overlap):
-        with tf.variable_scope('stft_diff'):
-            with tf.variable_scope('stft_gt'):
+        with tf.compat.v1.variable_scope('stft_diff'):
+            with tf.compat.v1.variable_scope('stft_gt'):
                 # stft_gt = myutils.stft(tf.transpose(gt, (0, 2, 1)), window, overlap)
                 stft_gt = myutils.stft_for_loss(gt, window, overlap)
 
-            with tf.variable_scope('stft_pred'):
+            with tf.compat.v1.variable_scope('stft_pred'):
                 # stft_pred = myutils.stft(tf.transpose(pred, (0, 2, 1)), window, overlap)
                 stft_pred = myutils.stft_for_loss(pred, window, overlap)
 
-            with tf.variable_scope('mse'):
+            with tf.compat.v1.variable_scope('mse'):
                 stft_diff = tf.abs(stft_gt-stft_pred)
                 mse = tf.reduce_mean(tf.reduce_mean(stft_diff**2, axis=3), axis=2)
         return mse
@@ -78,14 +79,14 @@ class SptAudioGen(object):
     @staticmethod
     def _lsd_ops(gt, pred, window, overlap):
         EPS = 1e-2
-        with tf.variable_scope('lsd'):
-            with tf.variable_scope('stft_gt'):
+        with tf.compat.v1.variable_scope('lsd'):
+            with tf.compat.v1.variable_scope('stft_gt'):
                 stft_gt = myutils.stft(tf.transpose(gt, (0, 2, 1)), window, overlap)
 
-            with tf.variable_scope('stft_pred'):
+            with tf.compat.v1.variable_scope('stft_pred'):
                 stft_pred = myutils.stft(tf.transpose(pred, (0, 2, 1)), window, overlap)
 
-            with tf.variable_scope('lsd'):
+            with tf.compat.v1.variable_scope('lsd'):
                 def power_spect(x):
                     return 10 * tf.log(tf.abs(x)+EPS) / tf.log(10.)
                 log_spec_diff = (power_spect(stft_gt) - power_spect(stft_pred))
@@ -95,13 +96,13 @@ class SptAudioGen(object):
 
     @staticmethod
     def _temporal_mse_ops(gt, pred):
-        with tf.variable_scope('mse'):
+        with tf.compat.v1.variable_scope('mse'):
             return tf.reduce_mean((gt - pred)**2, axis=1)
 
     @staticmethod
     def _temporal_snr_ops(gt, pred):
         EPS = 1e-1
-        with tf.variable_scope('snr'):
+        with tf.compat.v1.variable_scope('snr'):
             Psignal = tf.reduce_sum(gt**2, axis=1)
             Pnoise = tf.reduce_sum((gt-pred)**2, axis=1)
             snr = 10. * tf.log((Psignal+EPS)/(Pnoise+EPS)) / tf.log(10.)
@@ -181,7 +182,7 @@ class SptAudioGen(object):
         downsampling_l = [x]
         for l, nf, fs, st in zip(range(len(n_filters)), n_filters, filter_size, stride):
             name = 'conv{}'.format(l+1)
-            x = tfw.conv_2d(x, nf, fs, padding='VALID', activation_fn=tf.nn.relu, stride=st, name=name)
+            x = tfwcore.conv_2d(x, nf, fs, padding='VALID', activation_fn=tf.nn.relu, stride=st, name=name)
             downsampling_l.append(x)
             print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
         return downsampling_l
@@ -197,7 +198,7 @@ class SptAudioGen(object):
         x, ends = cnn.inference_ops(x, finetune, truncate_at='conv5_2')
         init_ops = cnn.restore_pretrained(inp_shape[-1], scope)
         self.init_ops.extend(init_ops)
-        self.ends.update([(scope+'/'+key, val) for key, val in ends.iteritems()])
+        self.ends.update([(scope+'/'+key, val) for key, val in ends.items()])
         return x
 
     def bottleneck_ops(self, x_enc, use_audio=True):
@@ -214,7 +215,7 @@ class SptAudioGen(object):
 
                 if k != AUDIO:
                     name = k+'-fc-red'
-                    x = tfw.fully_connected(x, 128, activation_fn=tf.nn.relu, name=name)
+                    x = tfwcore.fully_connected(x, 128, activation_fn=tf.nn.relu, name=name)
                     print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
 
                 sz = x.get_shape().as_list()
@@ -224,7 +225,7 @@ class SptAudioGen(object):
 
                 name = k+'-fc'
                 n_units = 1024 if k == AUDIO else 512
-                x = tfw.fully_connected(x, n_units, activation_fn=tf.nn.relu, name=name)
+                x = tfwcore.fully_connected(x, n_units, activation_fn=tf.nn.relu, name=name)
                 print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
 
                 if k in [VIDEO, FLOW]:
@@ -245,12 +246,12 @@ class SptAudioGen(object):
         # Localization
         for i, u in enumerate(self.params.loc_fc_units):
             name = 'fc{}'.format(i+1)
-            x = tfw.fully_connected(x, u, activation_fn=tf.nn.relu, name=name)
+            x = tfwcore.fully_connected(x, u, activation_fn=tf.nn.relu, name=name)
             print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
     
         # Compute localization weights
         name = 'fc{}'.format(len(self.params.loc_fc_units)+1)
-        x = tfw.fully_connected(
+        x = tfwcore.fully_connected(
             x, num_out*num_in*(self.params.sep_num_tracks+1), activation_fn=None,
             weights_initializer=tf.truncated_normal_initializer(stddev=0.001),
             weight_decay=0, name=name)  # BS x NF x NIN x NOUT
@@ -260,7 +261,7 @@ class SptAudioGen(object):
         print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
 
         sz = x.get_shape().as_list()
-        x = tf.tile(tf.expand_dims(x, 2), (1, 1, self.snd_dur/sz[1], 1, 1, 1))
+        x = tf.tile(tf.expand_dims(x, 2), (1, 1, int(self.snd_dur/sz[1]), 1, 1, 1))
         x = tf.reshape(x, (sz[0], self.snd_dur, sz[2], sz[3], sz[4]))
         print(' * {:15s} | {:20s} | {:10s}'.format('Tile', str(x.get_shape()), str(x.dtype)))
 
@@ -285,7 +286,7 @@ class SptAudioGen(object):
             stride = [(4, 8), (2, 4), (2, 2), (1, 1), (1, 1)]
 
             name = 'fc-feats'
-            feats = tfw.fully_connected(feats, n_filters[-1], activation_fn=tf.nn.relu, name=name)
+            feats = tfwcore.fully_connected(feats, n_filters[-1], activation_fn=tf.nn.relu, name=name)
             print(' * {:15s} | {:20s} | {:10s}'.format(name, str(feats.get_shape()), str(feats.dtype)))
 
             sz = feats.get_shape().as_list()
@@ -299,9 +300,11 @@ class SptAudioGen(object):
 
             # Up-convolution
             n_chann_in = mono.get_shape().as_list()[1]
-            for l, nf, fs, st, l_in in reversed(zip(range(len(n_filters)), [self.params.sep_num_tracks*n_chann_in,]+n_filters[:-1], filter_size, stride, audio_enc[:-1])):
+            list(zip(range(len(n_filters)), [self.params.sep_num_tracks*n_chann_in,]+n_filters[:-1], filter_size, stride, audio_enc[:-1]))[::-1]
+            #for l, nf, fs, st, l_in in reversed(zip(range(len(n_filters)), [self.params.sep_num_tracks*n_chann_in,]+n_filters[:-1], filter_size, stride, audio_enc[:-1])):
+            for l, nf, fs, st, l_in in list(zip(range(len(n_filters)), [self.params.sep_num_tracks*n_chann_in,]+n_filters[:-1], filter_size, stride, audio_enc[:-1]))[::-1]:
                 name = 'deconv{}'.format(l+1)
-                x = tfw.deconv_2d(x, nf, fs, stride=st, padding='VALID', activation_fn=None, name=name)
+                x = tfwcore.deconv_2d(x, nf, fs, stride=st, padding='VALID', activation_fn=None, name=name)
                 print(' * {:15s} | {:20s} | {:10s}'.format(name, str(x.get_shape()), str(x.dtype)))
 
                 if l == 0:
@@ -376,14 +379,14 @@ class SptAudioGen(object):
         if AUDIO in self.encoders:
             print('\nAudio encoder')
             scope = 'audio_encoder'
-            with tf.variable_scope(scope):
+            with tf.compat.v1.variable_scope(scope):
                 x_enc[AUDIO] = self.audio_encoder_ops(stft)
         
         # Video encoder
         if VIDEO in self.encoders:
             print('\nVideo encoder')
             scope = 'video_encoder'
-            with tf.variable_scope(scope):
+            with tf.compat.v1.variable_scope(scope):
                 x_enc[VIDEO] = self.visual_encoding_ops(
                     video, is_training=is_training, finetune=True, scope=scope)
 
@@ -391,20 +394,20 @@ class SptAudioGen(object):
         if FLOW in self.encoders:
             print('\nFlow encoder')
             scope = 'flow_encoder'
-            with tf.variable_scope(scope):
+            with tf.compat.v1.variable_scope(scope):
                 x_enc[FLOW] = self.visual_encoding_ops(
                     flow, is_training=is_training, finetune=True, scope=scope)
 
         # Mixer
         print('\nBottleneck')
         scope = 'bottleneck'
-        with tf.variable_scope(scope):
+        with tf.compat.v1.variable_scope(scope):
             feats = self.bottleneck_ops(x_enc, AUDIO in self.encoders)
 
         # Localization coefficients
         scope = 'localization'
         print('\n Localization')
-        with tf.variable_scope(scope):
+        with tf.compat.v1.variable_scope(scope):
             weights, biases = self.localization_ops(feats)
             
         self.loc_channels = [weights, biases]
@@ -412,7 +415,7 @@ class SptAudioGen(object):
         # Source separation
         scope = 'separation'
         print('\n Separation')
-        with tf.variable_scope(scope):
+        with tf.compat.v1.variable_scope(scope):
             x_sep = self.separation_ops(audio, stft, x_enc[AUDIO] if len(x_enc) else None, feats, scope)
             
         self.sep_channels = x_sep
@@ -425,7 +428,7 @@ class SptAudioGen(object):
         print(' * {:15s} | {:20s} | {:10s}'.format('Input Audio', str(x_sep.get_shape()), str(x_sep.dtype)))
         print(' * {:15s} | {:20s} | {:10s}'.format('Input Weights', str(weights.get_shape()), str(weights.dtype)))
         print(' * {:15s} | {:20s} | {:10s}'.format('Input Biases', str(biases.get_shape()), str(biases.dtype)))
-        with tf.variable_scope(scope):
+        with tf.compat.v1.variable_scope(scope):
             # Predict ambisonics (A_t = W_t*s_t + b_t)
             x_ambi = tf.reduce_sum(tf.reduce_sum(weights * tf.expand_dims(x_sep, axis=2), axis=4), axis=3) + biases[:,:,:,0]
             self.ends[scope + '/ambix'] = x_ambi

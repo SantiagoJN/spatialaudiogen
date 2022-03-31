@@ -20,7 +20,7 @@ def dir2samples(path):
 
 def nonZeroChannels(inp_fn):
     from scipy.io import wavfile
-    sndfile = '/tmp/output.wav'
+    sndfile = 'c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/output.wav'
     cmd = 'ffmpeg -y -t 300 -i {} -map a -ar 10000 {}'.format(inp_fn, sndfile)
     out, stderr = runSystemCMD(cmd)
     if any([l.startswith('Output file is empty') for l in stderr.split('\n')]):
@@ -48,7 +48,7 @@ def extract_clip(inp_fn, out_fn, rate=10, seek=None, duration=None):
     stdout, stderr = runSystemCMD(' '.join(cmd))
     if any([l.startswith('Output file is empty,')
             for l in stderr.split('\n')]):
-        raise ValueError, 'Output file is empty.\n' + stderr
+         raise ValueError('Output file is empty.\n' + stderr)
 
 
 def my_interp2(data, x, y, pts):

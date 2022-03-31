@@ -50,7 +50,7 @@ def _rnn(cell, x,
         x = x[-1]
 
     if activation:
-        with tf.variable_scope('activation'):
+        with tf.compat.v1.variable_scope('activation'):
             x = activation(x)
 
     if return_final_state:
@@ -121,8 +121,8 @@ def rnn(x, num_units,
         is_training=False,
         return_seq=False,
         return_all_layers=False,
-        variables_collections=tf.GraphKeys.MODEL_VARIABLES,
-        outputs_collections=tf.GraphKeys.ACTIVATIONS,
+        variables_collections=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
+        outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS,
         scope='SimpleRNN'):
     """Basic RNN wrapper"""
     from tflearn import simple_rnn as tfrnn
@@ -134,7 +134,7 @@ def rnn(x, num_units,
 
     layer_outputs = [None] * (num_layers+1)
     layer_outputs[0] = x
-    with tf.variable_scope(scope) as scope:
+    with tf.compat.v1.variable_scope(scope) as scope:
         for n in xrange(num_layers):
             layer_outputs[n+1] = tfrnn(layer_outputs[n], num_units,
                                        activation=activation,
@@ -144,7 +144,7 @@ def rnn(x, num_units,
                                        sequence_length=sequence_length)    # Dropout during evaluation mode!!!
         x = _prep_outputs(layer_outputs, return_seq, return_all_layers)
 
-    rnn_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+    rnn_vars = tf.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
     if variables_collections is not None:
         [tf.add_to_collection(variables_collections, var) for var in rnn_vars]
     if outputs_collections is not None:
@@ -163,8 +163,8 @@ def lstm(x, num_units,
          return_seq=False,
          return_all_layers=False,
          return_input_bow=False,
-         variables_collections=tf.GraphKeys.MODEL_VARIABLES,
-         outputs_collections=tf.GraphKeys.ACTIVATIONS,
+         variables_collections=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
+         outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS,
          scope='LSTM'):
     """LSTM wrapper"""
 
@@ -177,7 +177,7 @@ def lstm(x, num_units,
     keep_prob = _check_dropout(keep_prob, is_training)
 
     layer_outputs = [[w] for w in x]
-    with tf.variable_scope(scope, values=[layer_outputs, keep_prob, is_training]) as scope:
+    with tf.compat.v1.variable_scope(scope, values=[layer_outputs, keep_prob, is_training]) as scope:
         for n in range(num_layers):
             outps = _lstm([w[-1] for w in layer_outputs],
                           num_units,
@@ -191,7 +191,7 @@ def lstm(x, num_units,
             [w.append(o) for w, o in zip(layer_outputs, outps)]
         x = _prep_outputs(layer_outputs, return_seq, return_all_layers, return_input_bow, sequence_length)
 
-    rnn_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+    rnn_vars = tf.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
     if variables_collections is not None:
         [tf.add_to_collection(variables_collections, var) for var in rnn_vars]
     if outputs_collections is not None:
@@ -211,8 +211,8 @@ def gru(x, num_units,
         return_seq=False,
         return_all_layers=False,
         return_input_bow=False,
-        variables_collections=tf.GraphKeys.MODEL_VARIABLES,
-        outputs_collections=tf.GraphKeys.ACTIVATIONS,
+        variables_collections=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
+        outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS,
         scope='GRU'):
     """GRU wrapper"""
 
@@ -225,7 +225,7 @@ def gru(x, num_units,
     keep_prob = _check_dropout(keep_prob, is_training)
 
     layer_outputs = [[w] for w in x]
-    with tf.variable_scope(scope) as scope:
+    with tf.compat.v1.variable_scope(scope) as scope:
         for n in xrange(num_layers):
             outps = _gru([w[-1] for w in layer_outputs],
                          num_units,
@@ -239,7 +239,7 @@ def gru(x, num_units,
             [w.append(o) for w, o in zip(layer_outputs, outps)]
     x = _prep_outputs(layer_outputs, return_seq, return_all_layers, return_input_bow, sequence_length)
 
-    rnn_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+    rnn_vars = tf.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
     if variables_collections is not None:
         [tf.add_to_collection(variables_collections, var) for var in rnn_vars]
     if outputs_collections is not None:
@@ -260,8 +260,8 @@ def bidirectional_lstm(x, num_units,
                        return_seq=False,
                        return_all_layers=False,
                        return_input_bow=False,
-                       variables_collections=tf.GraphKeys.MODEL_VARIABLES,
-                       outputs_collections=tf.GraphKeys.ACTIVATIONS,
+                       variables_collections=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
+                       outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS,
                        scope='BidirectionalLSTM'):
     """LSTM wrapper"""
     from tflearn import bidirectional_rnn as _bidirectional_rnn
@@ -274,7 +274,7 @@ def bidirectional_lstm(x, num_units,
     keep_prob = _check_dropout(keep_prob, is_training)
 
     layer_outputs = [[w] for w in x]
-    with tf.variable_scope(scope) as scope:
+    with tf.compat.v1.variable_scope(scope) as scope:
         for n in xrange(num_layers):
             cell_fw = _BasicLSTMCell(num_units, activation, inner_activation)
             cell_bw = _BasicLSTMCell(num_units, activation, inner_activation)
@@ -288,7 +288,7 @@ def bidirectional_lstm(x, num_units,
             [w.append(o) for w, o in zip(layer_outputs, outps)]
         x = _prep_outputs(layer_outputs, return_seq, return_all_layers, return_input_bow, sequence_length)
 
-    rnn_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+    rnn_vars = tf.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
     if variables_collections is not None:
         [tf.add_to_collection(variables_collections, var) for var in rnn_vars]
     if outputs_collections is not None:
@@ -309,8 +309,8 @@ def bidirectional_gru(x, num_units,
                        return_seq=False,
                        return_all_layers=False,
                        return_input_bow=False,
-                       variables_collections=tf.GraphKeys.MODEL_VARIABLES,
-                       outputs_collections=tf.GraphKeys.ACTIVATIONS,
+                       variables_collections=tf.compat.v1.GraphKeys.MODEL_VARIABLES,
+                       outputs_collections=tf.compat.v1.GraphKeys.ACTIVATIONS,
                        scope='BidirectionalLSTM'):
     """Bidirectional GRU wrapper"""
 
@@ -325,7 +325,7 @@ def bidirectional_gru(x, num_units,
 
     layer_outputs = [[w] for w in x]
     for n in xrange(num_layers):
-        with tf.variable_scope(scope+str(n)) as scope:
+        with tf.compat.v1.variable_scope(scope+str(n)) as scope:
             cell_fw = _GRUCell(num_units, activation, inner_activation)
             cell_bw = _GRUCell(num_units, activation, inner_activation)
             outps = _bidirectional_rnn([w[-1] for w in layer_outputs], cell_fw, cell_bw,
@@ -336,10 +336,10 @@ def bidirectional_gru(x, num_units,
             if keep_prob:
                 outps = [dropout(outp, keep_prob, is_training) for outp in outps]
             [w.append(o) for w, o in zip(layer_outputs, outps)]
-    with tf.variable_scope(scope+'-out') as scope:
+    with tf.compat.v1.variable_scope(scope+'-out') as scope:
         x = _prep_outputs(layer_outputs, return_seq, return_all_layers, return_input_bow, sequence_length)
 
-    rnn_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+    rnn_vars = tf.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
     if variables_collections is not None:
         [tf.add_to_collection(variables_collections, var) for var in rnn_vars]
     if outputs_collections is not None:
@@ -353,7 +353,7 @@ def _test_lstm():
     xlen = tf.random_uniform((128, ), 0, 24, tf.int64)
     x = embedding(x, 5000, 300)
     x = bidirectional_gru(x, 1024, 2, sequence_length=xlen, keep_prob=0.5, is_training=True, return_seq=False, return_all_layers=True, return_input_bow=False)
-    print x
+    print (x)
 
 
 if __name__ == '__main__':

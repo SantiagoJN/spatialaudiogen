@@ -82,7 +82,7 @@ def main(args):
     # Feeder
     min_t = min([args.context, args.sample_dur, 1./args.video_rate])
     args.video_rate = int(1. / min_t)
-    with tf.device('/cpu:0'), tf.variable_scope('feeder'):
+    with tf.device('/cpu:0'), tf.compat.v1.variable_scope('feeder'):
         feeder = Feeder(args.db_dir,
                         subset_fn=args.subset_fn,
                         ambi_order=args.ambi_order,
@@ -130,22 +130,22 @@ def main(args):
         
         # Losses and evaluation metrics
         print(audio_mask_batch)
-        with tf.variable_scope('metrics'):
+        with tf.compat.v1.variable_scope('metrics'):
             metrics_t, _, _, _, _ = model.evaluation_ops(ambix_pred, audio_target, audio_input[:, ss:ss+t],
                                              mask_channels=audio_mask_batch[:, args.ambi_order**2:])
 
         step_t = tf.Variable(0, trainable=False, name='step')
-        with tf.variable_scope('loss'):
+        with tf.compat.v1.variable_scope('loss'):
             loss_t = model.loss_ops(metrics_t, step_t)
             losses_t = {l: loss_t[l] for l in loss_t}
-            regularizers = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            regularizers = tf.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
             if regularizers and 'regularization' in losses_t:
                 losses_t['regularization'] = tf.add_n(regularizers)
             losses_t['total_loss'] = tf.add_n(losses_t.values())
 
         # Optimizer
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.variable_scope('optimization') and tf.control_dependencies(update_ops):
+        update_ops = tf.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+        with tf.compat.v1.variable_scope('optimization') and tf.control_dependencies(update_ops):
             train_op, lr_t = myutils.optimize(losses_t['total_loss'], step_t, args)
 
         # Initialization
@@ -159,7 +159,7 @@ def main(args):
         metrics_t['queue'] = feeder.queue_state
         metrics_t['lr'] = lr_t
         myutils.add_scalar_summaries(metrics_t.values(), metrics_t.keys())
-        summary_ops = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES))
+        summary_ops = tf.summary.merge(tf.get_collection(tf.compat.v1.GraphKeys.SUMMARIES))
         summary_writer = tf.summary.FileWriter(args.model_dir, flush_secs=30)
         #summary_writer.add_graph(tf.get_default_graph())
 

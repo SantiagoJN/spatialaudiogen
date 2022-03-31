@@ -32,17 +32,17 @@ def main(args):
     assert args.overwrite or not os.path.exists(eval_fn), 'Evaluation file already exists.'
     os.environ["CUDA_VISIBLE_DEVICES"] = "%d" % args.gpu
 
-    print '\n' + '='*30 + ' ARGUMENTS ' + '='*30
+    print ('\n' + '='*30 + ' ARGUMENTS ' + '='*30)
     params = myutils.load_params(args.model_dir)
     for k, v in params.__dict__.iteritems():
-        print 'TRAIN | {}: {}'.format(k, v)
+        print ('TRAIN | {}: {}'.format(k, v))
     for k, v in args.__dict__.iteritems():
-        print 'EVAL | {}: {}'.format(k, v)
+        print ('EVAL | {}: {}'.format(k, v))
     sys.stdout.flush()
 
     DURATION = 0.1
     BATCH_SIZE = 16
-    with tf.device('/cpu:0'), tf.variable_scope('feeder'):
+    with tf.device('/cpu:0'), tf.compat.v1.variable_scope('feeder'):
         feeder = Feeder(params.db_dir,
                         subset_fn=args.subset_fn,
                         ambi_order=params.ambi_order,
@@ -69,7 +69,7 @@ def main(args):
         audio_input = ambix_batch[:, :, :params.ambi_order**2]
         audio_target = ambix_batch[:, ss:ss+t, params.ambi_order**2:]
 
-    print '\n' + '=' * 20 + ' MODEL ' + '=' * 20
+    print ('\n' + '=' * 20 + ' MODEL ' + '=' * 20)
     sys.stdout.flush()
     with tf.device('/gpu:0'):
         # Model
@@ -90,7 +90,7 @@ def main(args):
         pred_t = model.inference_ops(audio=audio_input, video=video_batch, flow=flow_batch, is_training=False)
 
         # Losses and evaluation metrics
-        with tf.variable_scope('metrics'):
+        with tf.compat.v1.variable_scope('metrics'):
             w_t = audio_input[:, ss:ss+t]
             _, stft_dist_ps, lsd_ps, mse_ps, snr_ps = model.evaluation_ops(pred_t, audio_target, w_t,
                                              mask_channels=audio_mask_batch[:, params.ambi_order**2:])
@@ -98,26 +98,26 @@ def main(args):
         vars2save = [v for v in tf.global_variables() if not v.op.name.startswith('metrics')]
         saver = tf.train.Saver(vars2save)
 
-    print '\n' + '='*30 + ' VARIABLES ' + '='*30
+    print ('\n' + '='*30 + ' VARIABLES ' + '='*30)
     model_vars = tf.global_variables()
     import numpy as np
     for v in model_vars:
         if 'Adam' in v.op.name.split('/')[-1]:
             continue
-        print ' * {:50s} | {:20s} | {:7s} | {:10s}'.format(v.op.name, str(v.get_shape()), str(np.prod(v.get_shape())), str(v.dtype))
+        print (' * {:50s} | {:20s} | {:7s} | {:10s}'.format(v.op.name, str(v.get_shape()), str(np.prod(v.get_shape())), str(v.dtype)))
 
-    print '\n' + '='*30 + ' EVALUATION ' + '='*30
+    print ('\n' + '='*30 + ' EVALUATION ' + '='*30)
     sys.stdout.flush()
     config = tf.ConfigProto(
         allow_soft_placement=True,
         gpu_options=tf.GPUOptions(allow_growth=True)
     )
     with tf.Session(config=config) as sess:
-        print 'Loading model...'
+        print ('Loading model...')
         sess.run(model.init_ops)
         saver.restore(sess, tf.train.latest_checkpoint(args.model_dir))
 
-        print 'Initializing data feeders...'
+        print ('Initializing data feeders...')
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners(sess, coord)
         feeder.start_threads(sess)
@@ -134,7 +134,7 @@ def main(args):
         sample_ids = []
         telapsed = deque(maxlen=20)
 
-        print 'Start evaluation...'
+        print ('Start evaluation...')
         it = -1
         # run_options = tf.RunOptions(timeout_in_ms=60*1000)
         while True:

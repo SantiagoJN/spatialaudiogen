@@ -42,7 +42,7 @@ class W2XYZ(object):
     def __init__(self, model_dir):
         print('\n' + '='*30 + ' ARGUMENTS ' + '='*30)
         params = myutils.load_params(model_dir)
-        for k, v in params.__dict__.iteritems():
+        for k, v in params.__dict__.items():
             print('TRAIN  | {}: {}'.format(k, v))
 
         self.params = params
@@ -67,21 +67,21 @@ class W2XYZ(object):
         self.audio_size = self.model.snd_dur + self.model.snd_contx - 1
         self.video_size = int(self.duration * params.video_rate)
         shape = (self.batch_size, self.audio_size, 1)
-        self.tba = {AUDIO: tf.placeholder(dtype=tf.float32, shape=shape)}
+        self.tba = {AUDIO: tf.compat.v1.placeholder(dtype=tf.float32, shape=shape)}
         if VIDEO in params.encoders:
             shape = (self.batch_size, self.video_size, 224, 448, 3)
-            self.tba[VIDEO] = tf.placeholder(dtype=tf.float32, shape=shape)
+            self.tba[VIDEO] = tf.compat.v1.placeholder(dtype=tf.float32, shape=shape)
         if FLOW in params.encoders:
             shape = (self.batch_size, self.video_size, 224, 448, 3)
-            self.tba[FLOW] = tf.placeholder(dtype=tf.float32, shape=shape)
+            self.tba[FLOW] = tf.compat.v1.placeholder(dtype=tf.float32, shape=shape)
         self.ambi_pred_t = self.model.inference_ops(is_training=False, **self.tba)
         
-        saver = tf.train.Saver()
-        config = tf.ConfigProto(
+        saver = tf.compat.v1.train.Saver()
+        config = tf.compat.v1.ConfigProto(
             allow_soft_placement=True,
-            gpu_options=tf.GPUOptions(allow_growth=True)
+            gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)
         )
-        self.sess = tf.Session(config=config)
+        self.sess = tf.compat.v1.Session(config=config)
         print('Loading model...')
         print(tf.train.latest_checkpoint(model_dir))
         saver.restore(self.sess, tf.train.latest_checkpoint(model_dir))
@@ -125,6 +125,8 @@ class W2XYZ(object):
             if n_samples != self.batch_size:
                 ambix = np.concatenate([ambix, np.zeros((self.batch_size - n_samples, ambix.shape[1], ambix.shape[2]))], axis=0)
             feed_dict = {self.tba[AUDIO]: ambix[:, :, :1]}
+            #print(f'########AMBIX shape: {ambix.shape}, data: {ambix}')
+            #!!aquí está ok
 
             if VIDEO in self.params.encoders:
                 video = np.stack([b['video'] for b in batch], axis=0)
@@ -139,39 +141,50 @@ class W2XYZ(object):
                 feed_dict[self.tba[FLOW]] = flow
 
             ambi_pred_chk = self.sess.run(self.ambi_pred_t, feed_dict=feed_dict)
+            # print(f'########AMBI PRED shape: {ambi_pred_chk.shape}, data: {ambi_pred_chk}')
 
             n_frames = n_samples * ambi_pred_chk.shape[1]
             n_out = ambi_pred_chk.shape[2]
 
             ambi_pred_chk = np.copy(ambi_pred_chk[:n_samples]).reshape((n_frames, n_out))
+            # print(f'########tras reshape, AMBI PRED shape: {ambi_pred_chk.shape}, data: {ambi_pred_chk}')
             ambi_pred.append(ambi_pred_chk)
-            mono.append(np.copy(ambix[:n_samples, ss:ss + self.model.snd_dur, :1]).reshape((-1, 1)))
+            #print(f'Types: n_samples {type(n_samples)} ss {type(ss)} self.model.snd_dur {type(self.model.snd_dur)}')
+            datos = ambix[:n_samples, int(ss):int(ss) + int(self.model.snd_dur), :1]
+            # print(f'ambix shape: {ambix.shape}, data: {ambix}')
+            # print(f'ambix[:{n_samples}, int({ss}):int({ss}) + int({self.model.snd_dur}), :1]')
+            # print(f'Tipo de ambix: {type(datos[0][0][0])}')
+            # print(f'Voy a copiar {datos.shape}, con contenido {datos}, y tipo {type(datos[0][0][0])}')
+            mono.append(np.copy(ambix[:n_samples, int(ss):int(ss) + int(self.model.snd_dur), :1]).reshape((-1, 1)))
+            #print(f'########MONO length: {len(mono)}, data: {mono}')
 
         mono = np.concatenate(mono, 0)
         ambi_pred = np.concatenate((mono, np.concatenate(ambi_pred, 0)), 1)
+        # print(f'########antes return AMBI PRED shape: {ambi_pred.shape}, data: {ambi_pred}')
         return ambi_pred
 
 
 def main(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = "%d" % args.gpu
-    tmp_ambix_fn = tempfile.mktemp(prefix='/tmp/', suffix='.wav')
-    tmp_video_fn = tempfile.mktemp(prefix='/tmp/', suffix='.mp4')
+    tmp_ambix_fn = tempfile.mktemp(prefix='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.wav')
+    tmp_video_fn = tempfile.mktemp(prefix='c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tmp/', suffix='.mp4')
 
     model = W2XYZ(args.model_dir)
     ambi_pred = model.deploy(args.input_folder, args.deploy_start, args.deploy_duration)
 
+    # Antes comment begin
     # dur_t = model.model.duration
     # snd1 = model.deploy(args.input_folder, args.deploy_start - dur_t/2, args.deploy_duration + dur_t)    
     # hann1 = np.hanning(model.model.snd_dur)
-    # hann1 = np.tile(hann1, snd1.shape[0]/hann1.size)[:, np.newaxis]
-    # ss = model.model.snd_dur/2
+    # hann1 = np.tile(hann1, int(snd1.shape[0]/hann1.size))[:, np.newaxis]
+    # ss = int(model.model.snd_dur/2)
     # t = int(args.deploy_duration * model.params.audio_rate)
     # snd1 = snd1[ss:ss+t]
     # hann1 = hann1[ss:ss+t]
 
     # snd2 = model.deploy(args.input_folder, args.deploy_start, args.deploy_duration + dur_t)
     # hann2 = np.hanning(model.model.snd_dur)
-    # hann2 = np.tile(hann2, snd2.shape[0]/hann2.size)[:, np.newaxis]
+    # hann2 = np.tile(hann2, int(snd2.shape[0]/hann2.size))[:, np.newaxis]
     # ss = 0
     # t = int(args.deploy_duration * model.params.audio_rate)
     # snd2 = snd2[ss:ss+t]
@@ -179,18 +192,25 @@ def main(args):
 
     # ambi_pred = (snd1 * hann1 + snd2 * hann2) / (hann1 + hann2)
 
+    # Antes comment end
+
     # Save ambisonics
     save_wav(tmp_ambix_fn, ambi_pred, model.params.audio_rate)
+    print(f'tmp_ambix_fn: {tmp_ambix_fn}, args.output_fn: {args.output_fn}')
 
     if args.save_ambix:
         print('Saving ambisonics wav...')
+        print(f'==================================================')
         cmd = 'ffmpeg -y -i {} -strict -2 {}'.format(tmp_ambix_fn, args.output_fn)
         os.system(cmd)
+        print(f'==================================================')
 
     if args.save_video:
         print('Saving video...')
+        print(f'==================================================')
         cmd = 'ffmpeg -y -ss {} -i {} -t {} {}'.format(args.deploy_start, args.video, args.deploy_duration, tmp_video_fn)
         os.system(cmd)
+        print(f'==================================================')
 
         myutils.gen_360video(tmp_ambix_fn, tmp_video_fn, args.output_fn, overlay_map=args.overlay_map, inject_meta=args.VR, binauralize=not args.VR)
 

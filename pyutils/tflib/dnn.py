@@ -17,7 +17,7 @@ TEST = 1
 DTYPE_DICT = {'int32': tf.int32, 'int64': tf.int64, 'float32': tf.float32, 'float64': tf.float32}
 
 class DNN(object):
-    def __init__(self, tb_dir="/tmp/tflearn_logs/", tb_verbosity=0, ckp_path=None):
+    def __init__(self, tb_dir="c:/Users/santy/OneDrive/Escritorio/Compartida/spatialaudiogen-/tflearn_logs/", tb_verbosity=0, ckp_path=None):
         self.sess_cfg = {'gpu_fraction': 1.0, 'growth': True, 'soft_placement': True, 'log_device': False, 'num_workers': 2}
 
         # variables used in training mode
@@ -109,7 +109,7 @@ class DNN(object):
         self.sess_cfg['num_workers'] = num_workers
 
     def training_setup(self, train_feeders, model,
-                       optimizer=tf.train.AdamOptimizer(0.001),
+                       optimizer=tf.compat.v1.train.AdamOptimizer(0.001),
                        clip_grads=-1,
                        val_feeders=None,
                        val_steps=20,
@@ -129,10 +129,10 @@ class DNN(object):
         with self.graph.as_default():
             # Global variables
             with tf.device('/cpu:0'):
-                with tf.variable_scope('step'):
+                with tf.compat.v1.variable_scope('step'):
                     self.global_step = tf.get_variable('global_step', (), initializer=tf.constant_initializer(0), trainable=False)
 
-                with tf.variable_scope('epoch'):
+                with tf.compat.v1.variable_scope('epoch'):
                     self.epoch = tf.get_variable('epoch', (), initializer=tf.constant_initializer(0), trainable=False)
                     self.incr_epoch = tf.assign(self.epoch, tf.add(self.epoch, 1))
 
@@ -141,7 +141,7 @@ class DNN(object):
 
             # Training inputs
             if train_feeders is not None:
-                with tf.variable_scope('train_input'):
+                with tf.compat.v1.variable_scope('train_input'):
                     if isinstance(train_feeders, dict):
                         train_inputs_t, train_targets_t = {}, {}
                         for key, feeder in train_feeders.iteritems():
@@ -154,7 +154,7 @@ class DNN(object):
 
             # Validation inputs
             if val_feeders is not None:
-                with tf.variable_scope('valid_input'):
+                with tf.compat.v1.variable_scope('valid_input'):
                     if isinstance(val_feeders, dict):
                         val_inputs_t, val_targets_t = {}, {}
                         for key, feeder in val_feeders.iteritems():
@@ -165,7 +165,7 @@ class DNN(object):
                         val_batch_size = val_feeders.batch_size
 
             with tf.device(gpu):
-                with tf.variable_scope('inference'):
+                with tf.compat.v1.variable_scope('inference'):
                     if train_feeders is not None:
                         train_logits_t = model.inference_ops(train_inputs_t, is_training=True, reuse=False)
                         self.train_logits_t = train_logits_t
@@ -173,24 +173,24 @@ class DNN(object):
                         val_logits_t = model.inference_ops(val_inputs_t, is_training=False, reuse=train_feeders is not None)
 
                 if train_feeders is not None:
-                    with tf.variable_scope('loss'):
+                    with tf.compat.v1.variable_scope('loss'):
                         train_loss_t = model.loss_ops(train_logits_t, train_targets_t)
 
-                    with tf.variable_scope('eval'):
+                    with tf.compat.v1.variable_scope('eval'):
                         train_metrics_t = model.evaluation_ops(train_logits_t, train_targets_t)
 
-                    with tf.variable_scope('TrainOp'):
+                    with tf.compat.v1.variable_scope('TrainOp'):
                         self.trainer = TrainOp(train_loss_t, optimizer, clip_gradients=clip_grads, metrics=train_metrics_t,
                                                batch_size=train_batch_size, batch_per_epoch=self.batches_per_epoch,
                                                step_tensor=self.global_step, epoch_tensor=self.epoch,
                                                tb_verbosity=self.tb_verbosity, logdir=os.path.join(self.tb_dir, 'train'))
 
                 if val_feeders is not None:
-                    with tf.variable_scope('EvalOp'):
-                        with tf.variable_scope('loss'):
+                    with tf.compat.v1.variable_scope('EvalOp'):
+                        with tf.compat.v1.variable_scope('loss'):
                             val_loss_t = model.loss_ops(val_logits_t, val_targets_t)
 
-                        with tf.variable_scope('eval'):
+                        with tf.compat.v1.variable_scope('eval'):
                             val_metrics_t = model.evaluation_ops(val_logits_t, val_targets_t)
 
                         self.validator = EvaluateOp(val_loss_t, val_metrics_t, num_steps=val_steps, batch_size=val_batch_size,
@@ -210,10 +210,10 @@ class DNN(object):
         self.val_steps = []
 
         if snapshot_dir is not None and os.path.exists(os.path.join(snapshot_dir, 'checkpoint')):
-            # print([var.op.name for var in self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
+            # print([var.op.name for var in self.graph.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES)])
             # exit(0)
             self.sess.run(init_op)
-            restorer = tf.train.Saver(self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'inference'))
+            restorer = tf.train.Saver(self.graph.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, 'inference'))
             restorer.restore(self.sess, tf.train.latest_checkpoint(snapshot_dir))
             if not resume:
                 self.sess.run([reset_epoch, reset_step])
@@ -330,7 +330,7 @@ class DNN(object):
         self._start_new_graph()
         with self.graph.as_default():
             with tf.device(gpu):
-                with tf.variable_scope('inputs'):
+                with tf.compat.v1.variable_scope('inputs'):
                     if 'dtype' in input_info.values()[0]:
                         names = input_info.keys()
                         dtypes = [DTYPE_DICT[val['dtype']] for _, val in input_info.iteritems()]
@@ -344,11 +344,11 @@ class DNN(object):
                             shapes = [val['shape'] for _, val in input_info[phase].iteritems()]
                             self.inputs_t[phase] = [tf.placeholder(dtype=d, shape=(None,) + s, name=n) for n, d, s in zip(names, dtypes, shapes)]
 
-                with tf.variable_scope('inference'):
+                with tf.compat.v1.variable_scope('inference'):
                     self.logits_t = model.inference_ops(self.inputs_t, is_training=False)   #tf.constant(False, name='IsTraining'))
 
             with tf.device('/cpu:0'):
-                self.restorer = tf.train.Saver(self.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'inference'))
+                self.restorer = tf.train.Saver(self.graph.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, 'inference'))
 
         self.graph.finalize()
         self._start_session()
@@ -455,7 +455,7 @@ class TrainOp(object):
 
         self.gradients = None
         self.train_vars = trainable_vars if trainable_vars is not None else tf.trainable_variables()
-        all_train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        all_train_vars = tf.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES)
         assert all([var in self.train_vars for var in all_train_vars]), 'Uninitialized vars:\n' + '\n'.join([var.op.name  for var in all_train_vars if var not in self.train_vars])
 
         self.step_tensor = step_tensor
@@ -466,9 +466,9 @@ class TrainOp(object):
 
         # Building training ops
         # Compute total loss, which is the loss of all optimizers plus the loss of all regularizers.
-        with tf.variable_scope('losses'):
+        with tf.compat.v1.variable_scope('losses'):
             all_losses = {'name': losses.keys(), 'tensor': losses.values()}
-            reg_loss = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            reg_loss = tf.get_collection(tf.compat.v1.GraphKeys.REGULARIZATION_LOSSES)
             if reg_loss:
                 all_losses['name'].append('regularization')
                 all_losses['tensor'].append(tf.add_n(reg_loss))
@@ -478,11 +478,11 @@ class TrainOp(object):
         _add_scalar_summaries(all_losses['tensor'], all_losses['name'])
 
         # Compute and apply gradients
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        update_ops = tf.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
         if not update_ops:
             update_ops = None
 
-        with tf.variable_scope('optimizer'), tf.control_dependencies(update_ops):
+        with tf.compat.v1.variable_scope('optimizer'), tf.control_dependencies(update_ops):
             self.gradients = tf.gradients(total_loss, self.train_vars)
             if clip_gradients > 0.0:
                 self.gradients, grad_norm = tf.clip_by_global_norm(self.gradients, clip_gradients)
@@ -492,15 +492,15 @@ class TrainOp(object):
 
         # Summarize losses and metrics
         # Create other useful summaries (weights, grads, activations...)
-        # with tf.variable_scope('metrics'):
+        # with tf.compat.v1.variable_scope('metrics'):
         _add_scalar_summaries([self.metrics[m] for m in self.metrics_name], self.metrics_name)
         if '_lr_t' in optimizer.__dict__:
             _add_scalar_summaries([optimizer._lr_t], ['lr'])
         _add_histogram_summaries(self.train_vars, self.gradients, tb_verbosity)
 
         # Building summary ops
-        self.summary_ops = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES, scope='TrainOp')+
-                                            tf.get_collection(tf.GraphKeys.SUMMARIES, scope='train_input'))
+        self.summary_ops = tf.summary.merge(tf.get_collection(tf.compat.v1.GraphKeys.SUMMARIES, scope='TrainOp')+
+                                            tf.get_collection(tf.compat.v1.GraphKeys.SUMMARIES, scope='train_input'))
         self.summary_writer = tf.summary.FileWriter(logdir, graph=self.graph, flush_secs=30)
 
     def _print_stats(self):
@@ -634,16 +634,16 @@ class EvaluateOp(object):
         self.duration = 0
 
         # Building validation ops
-        with tf.variable_scope('losses'):
+        with tf.compat.v1.variable_scope('losses'):
             self.loss_avg_tens = {l: tf.placeholder(tf.float32, shape=(), name=l) for l in self.losses_name}
         _add_scalar_summaries([self.loss_avg_tens[l] for l in self.losses_name], self.losses_name)
 
-        with tf.variable_scope('metrics'):
+        with tf.compat.v1.variable_scope('metrics'):
             self.metrics_avg_tens = {m: tf.placeholder(tf.float32, shape=(), name=m) for m in self.metrics_name}
         _add_scalar_summaries([self.metrics_avg_tens[m] for m in self.metrics_name], self.metrics_name)
 
         # Building summary ops
-        self.summary_ops = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES, scope='EvalOp'))
+        self.summary_ops = tf.summary.merge(tf.get_collection(tf.compat.v1.GraphKeys.SUMMARIES, scope='EvalOp'))
         self.summary_writer = tf.summary.FileWriter(logdir, graph=self.graph, flush_secs=30)
 
     def _print_stats(self):
@@ -692,7 +692,7 @@ def _add_scalar_summaries(tensor_list, tensor_names):
 def _add_histogram_summaries(variables, gradients, verbosity=3):
     if verbosity > 0:
         # Add histograms for activation.
-        activations = tf.get_collection(tf.GraphKeys.ACTIVATIONS)
+        activations = tf.get_collection(tf.compat.v1.GraphKeys.ACTIVATIONS)
         actv_names = ['/'.join(actv.op.name.split('/')[1:]) for actv in activations]
         for name, act in zip(actv_names, activations):
             tf.summary.histogram('actv/'+name, act)
@@ -771,18 +771,18 @@ def test_dnn():
             self.n_classes = n_classes
 
         def inference_ops(self, inputs, is_training=None):
-            with tf.variable_scope('fc1'):
+            with tf.compat.v1.variable_scope('fc1'):
                 x = tfw.fully_connected(inputs, 50, activation_fn=tf.nn.relu, is_training=is_training)
-            with tf.variable_scope('logit'):
+            with tf.compat.v1.variable_scope('logit'):
                 return tfw.fully_connected(x, self.n_classes, activation_fn=None)
 
         def loss_ops(self, logits, targets):
-            with tf.variable_scope('cross_entropy'):
+            with tf.compat.v1.variable_scope('cross_entropy'):
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, targets)
                 return tf.reduce_mean(loss, name='loss')
 
         def evaluation_ops(self, logits, targets, is_training=None):
-            with tf.variable_scope('accuracy'):
+            with tf.compat.v1.variable_scope('accuracy'):
                 accuracy = tfw.metrics.accuracy(logits, targets)
             return {'accuracy': accuracy}
 
